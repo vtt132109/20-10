@@ -463,33 +463,6 @@
   <span class="eq absolute -bottom-1 left-1/2 hidden -translate-x-1/2" id="eqbars"><i></i><i></i><i></i><i></i></span>
 </button>
 
-<!-- Nút chỉnh phụ đề: bấm vào rồi nhấn Cách mỗi khi câu nên hiện -->
-<button id="edit-ly" aria-label="Chỉnh thời điểm phụ đề"
-  class="dock iconbtn fixed bottom-4 left-4 z-50 hidden h-11 w-11 items-center justify-center rounded-full text-petal-200 shadow-glow-s sm:bottom-6 sm:left-6">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
-  </svg>
-</button>
-
-<div id="ly-editor" class="pointer-events-none fixed inset-x-0 bottom-24 z-50 hidden overflow-hidden px-3 sm:bottom-20">
-  <div class="dock pointer-events-auto mx-auto flex max-w-md flex-col items-center gap-2 rounded-2xl px-4 py-3.5 text-center">
-    <p class="text-[.7rem] tracking-wide text-petal-200/80">
-      Đang chỉnh · câu <b id="ed-i" class="text-petal-100">1</b>/<b id="ed-n" class="text-petal-100">0</b>
-      · <span id="ed-t" class="text-white/60">0.0s</span>
-    </p>
-    <p id="ed-now" class="w-full truncate text-sm font-semibold text-petal-100"></p>
-    <button id="ed-mark" class="w-full max-w-[220px] rounded-full bg-petal-600/40 px-6 py-2 text-sm font-semibold text-white transition hover:bg-petal-600/60">
-      Đánh dấu câu này
-    </button>
-    <p class="flex max-w-full flex-wrap items-center justify-center gap-x-1.5 text-[.65rem] leading-relaxed text-white/45">
-      <span>Nghe nhạc, câu nên hiện thì bấm nút hoặc nhấn <kbd class="rounded bg-white/10 px-1">Cách</kbd></span>
-      <button id="ed-undo" class="underline">hoàn tác</button>
-      <button id="ed-reset" class="underline">xoá hết</button>
-      <button id="ed-done" class="underline">xong</button>
-    </p>
-  </div>
-</div>
-
 <div id="lyricbar" class="is-off fixed inset-x-0 bottom-0 z-40 px-4 pb-5 pt-8 text-center sm:pb-7">
   <div class="mx-auto flex max-w-3xl flex-col items-center gap-0.5">
     <p class="text-[.7rem] italic text-white/25 transition sm:text-sm" id="ly-prev"></p>
@@ -1313,11 +1286,12 @@ const DOC_LOI = (raw) => {
   let nguon = 'tay';
   let ix = -1, lastLen = -1, L = [];
 
-  /* ── Thời điểm đã đánh dấu, lưu trong máy người dùng ── */
+  /* ── Mốc thời gian đã đánh dấu từ trước, lưu trong máy người dùng ──
+     Mốc mới đã ghi thẳng vào LOI_HAT nên không còn nút đánh dấu.
+     Vẫn đọc khoá cũ để ai đã từng đánh dấu thì giữ nguyên thời điểm cũ. */
   const KHOA = 'mo-con-qua-tang-phu-de';
   let TD = [];
   try { TD = JSON.parse(localStorage.getItem(KHOA) || '[]') || []; } catch (_) { TD = []; }
-  const luuTD = () => { try { localStorage.setItem(KHOA, JSON.stringify(TD)); } catch (_) {} };
   const soMoc = () => { let c = 0; for (const v of TD) if (typeof v === 'number') c++; return c; };
 
   /* Dùng các mốc đã đánh dấu; câu chưa đánh dấu thì nội suy giữa
@@ -1371,50 +1345,6 @@ const DOC_LOI = (raw) => {
     }
   }, 2500);
 
-  /* ── Chế độ chỉnh ── */
-  const edBtn = $('#edit-ly'), edBox = $('#ly-editor'), edI = $('#ed-i'), edN = $('#ed-n');
-  const edT = $('#ed-t'), edNow = $('#ed-now');
-  let edOn = false, edIx = 0;
-
-  const ve = () => {
-    edBox.classList.toggle('hidden', !edOn);
-    edBtn.classList.toggle('ring-2', edOn);
-    edBtn.classList.toggle('ring-petal-400', edOn);
-    edN.textContent = LOI.length + (soMoc() ? ' · đã ' + soMoc() : '');
-    ve2();
-  };
-  const ve2 = () => {
-    edI.textContent = Math.min(edIx + 1, LOI.length);
-    edNow.textContent = LOI[Math.min(edIx, LOI.length - 1)].x;
-  };
-  const danhDau = () => {
-    if (edIx >= LOI.length) return;
-    TD[edIx] = Number(Music.viTri().toFixed(2));
-    edIx++; luuTD();
-    L = xep(); ix = -1;
-    ve2();
-  };
-
-  edBtn.addEventListener('click', () => {
-    edOn = !edOn;
-    if (edOn) { if (!TD.length) TD = new Array(LOI.length).fill(null); edIx = 0; }
-    ve();
-  });
-  $('#ed-mark').addEventListener('click', (e) => { e.preventDefault(); danhDau(); });
-  $('#ed-undo').addEventListener('click', (e) => { e.preventDefault(); edIx = Math.max(0, edIx - 1); ve2(); });
-  $('#ed-reset').addEventListener('click', (e) => {
-    e.preventDefault(); TD = []; edIx = 0; luuTD(); L = xep(); ix = -1; ve2();
-  });
-  $('#ed-done').addEventListener('click', (e) => { e.preventDefault(); edOn = false; ve(); });
-
-  addEventListener('keydown', (e) => {
-    if (!edOn) return;
-    if (e.code === 'Space') { e.preventDefault(); danhDau(); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); edIx = Math.min(edIx + 1, LOI.length - 1); ve2(); }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); edIx = Math.max(0, edIx - 1); ve2(); }
-    else if (e.key === 'Escape')    { edOn = false; ve(); }
-  });
-
   setInterval(() => {
     if (!Music.on) return;
     const len = Math.max(1, (Music.LOOP || 32) - CAI_PHU_DE.bo_dau);
@@ -1431,16 +1361,7 @@ const DOC_LOI = (raw) => {
       cur.classList.toggle('ly-dai', L[i].x.length > 46);
     }
     fill.style.width = `${clamp(p / len, 0, 1) * 100}%`;
-    if (edOn) edT.textContent = Music.viTri().toFixed(1) + 's';
   }, 90);
-
-  /* hiện nút chỉnh khi có nhạc */
-  const theoDoi = () => {
-    edBtn.classList.toggle('hidden', !Music.on);
-    edBtn.classList.toggle('flex', Music.on);
-    if (!Music.on && edOn) { edOn = false; edBox.classList.add('hidden'); }
-  };
-  setInterval(theoDoi, 250);
 })();
 
 /* ── nút âm thanh + bật nhạc sẵn khi vào web ── */
@@ -1594,15 +1515,18 @@ const Universe = (() => {
       return s;
     }
 
-    /* chia đều trên mặt cầu, có khoảng cách tối thiểu giữa các điểm.
-       Lệch z về phía sau để không vật nào lọt sát camera (sẽ phình to vỡ khung). */
+    /* Chia đều khắp mặt cầu, có khoảng cách tối thiểu giữa các điểm.
+       Trước đây hướng chỉ được rút trong một hộp phẳng (z luôn âm) nên
+       phía sau vũ trụ bị trống — giờ lấy trong khối cầu rồi chuẩn hoá
+       để phủ đều cả mặt trước lẫn mặt sau.
+       Vật lọt sát camera đã được xử lý riêng bằng cơ chế `fade` bên dưới. */
     function traiRong(n, sep, rMin, rMax) {
       const dirs = [], out = [];
       for (let i = 0; i < n; i++) {
         let best = null, bestGap = -1;
-        for (let k = 0; k < 160; k++) {
-          const v = new THREE.Vector3(rand(-1, 1), rand(-0.72, 0.72), rand(-1, -0.08));
-          if (v.lengthSq() < 0.05) continue;
+        for (let k = 0; k < 260; k++) {
+          const v = new THREE.Vector3(rand(-1, 1), rand(-0.78, 0.78), rand(-1, 1));
+          if (v.lengthSq() < 0.06) continue;
           v.normalize();
           let gap = Infinity;
           for (const d of dirs) gap = Math.min(gap, v.angleTo(d));
@@ -1756,6 +1680,9 @@ const Universe = (() => {
         floaters.push({
           o: core, baseY: p.y, amp: rand(0.3, 0.9), sp: rand(0.3, 0.7),
           ph: rand(0, 6.28), pair: glow,
+          /* lời chúc cũng cần tắt khi lọt sát camera, không chỉ ảnh */
+          fade: true, mats: [core.material, glow.material],
+          op0: [core.material.opacity, glow.material.opacity], k: -1,
         });
       });
     }
@@ -1952,15 +1879,15 @@ const Universe = (() => {
             f.o.rotateZ(f.tilt);
           }
 
-          /* ── chặn ảnh lọt sát camera ──
-             Khi xoay, một tấm ảnh có thể lọt ra sát ống kính và phình
-             kín màn hình. Ở dưới ~4.5 đơn vị thì tắt hẳn, từ 4.5 đến 8
-             thì mờ dần — nên không bao giờ có ảnh nào che hết cảnh. */
+          /* ── chặn vật lọt sát camera ──
+             Khi xoay, một tấm ảnh hoặc lời chúc có thể lọt ra sát ống kính
+             và phình kín màn hình. Ở dưới 5 đơn vị thì tắt hẳn, từ 5 đến 9.5
+             thì mờ dần — nên không bao giờ có vật nào che hết cảnh. */
           if (f.fade) {
             f.o.updateWorldMatrix(true, false);
             _p.setFromMatrixPosition(f.o.matrixWorld);
             const d = _p.distanceTo(camera.position);
-            const k = clamp((d - 4.5) / 3.5, 0, 1);
+            const k = clamp((d - 5) / 4.5, 0, 1);
             if (Math.abs(k - f.k) > 0.01) {
               f.k = k;
               for (let i = 0; i < f.mats.length; i++) {
