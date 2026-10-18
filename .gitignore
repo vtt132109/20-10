@@ -6,6 +6,9 @@
 #    Đồng thời đây là bản tải từ nguồn không chính thức — không nên phát hành.
 /nhac/*.mp3
 
+# ── Thư mục nhac chỉ là hướng dẫn cục bộ, không thuộc về website.
+/nhac/
+
 # ── Công cụ cục bộ, không thuộc về web
 /do-thoi-diem-phu-de.py
 
