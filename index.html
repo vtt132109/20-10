@@ -1536,7 +1536,10 @@ const Universe = (() => {
       const dirs = [], out = [];
       for (let i = 0; i < n; i++) {
         let best = null, bestGap = -1;
-        for (let k = 0; k < 260; k++) {
+        /* 700 lần thử chứ không phải 260: với 18 lời chúc mỗi câu cần một
+       khoảng trống khá rộng, thử ít sẽ không tìm được chỗ nào thoả
+       và câu đó rơi vào chỗ chồng lên câu khác → chữ đọc như vỡ */
+      for (let k = 0; k < 700; k++) {
           const v = new THREE.Vector3(rand(-1, 1), rand(-0.78, 0.78), rand(-1, 1));
           if (v.lengthSq() < 0.06) continue;
           v.normalize();
@@ -1677,15 +1680,27 @@ const Universe = (() => {
     {
       const N = MOBILE ? 15 : 18;
       const pick = [...WISHES].sort(() => Math.random() - 0.5).slice(0, N);
-      traiRong(N, 0.32, 11, 21).forEach(({ v, r }, i) => {
+      /* sep 0.32 làm các lời chúc dồn sát nhau, chồng lên nhau đọc như
+         bị vỡ chữ — tăng lên 0.5 và hạ bán kính cho thoáng */
+      traiRong(N, 0.5, 12, 19).forEach(({ v, r }, i) => {
         const tex = neonTexture(pick[i % pick.length], HUES[i % HUES.length]);
         const asp = tex.image.width / tex.image.height;
-        const h = rand(1.45, 2.15);
+        /* Giới hạn BỀ RỘNG. Câu dài có tỉ lệ khung tới ~5.7, nhân với chiều
+           cao 2.15 sẽ thành sprite rộng hơn 12 đơn vị — lớn hơn cả khoảng
+           cách giữa hai câu, nên hai câu chồng lên nhau và đọc như vỡ chữ.
+           Hạ chiều cao của câu dài xuống sao cho bề rộng không vượt quá,
+           câu ngắn giữ nguyên kích thước. Không méo vì vẫn giữ đúng asp. */
+        const RONG_TOI_DA = 7.6;
+        let h = rand(1.45, 2.15);
+        if (h * asp > RONG_TOI_DA) h = RONG_TOI_DA / asp;
         const w = h * asp;
         const p = v.clone().multiplyScalar(r);
         const fade = clamp(1 - (r - 10) / 24, 0.8, 1);
 
-        const glow = sprite(tex, w * 1.22, h * 1.4, 0.34 * fade);
+        /* quầng sáng phải GIỮ ĐÚNG TỈ LỆ với chữ gốc. Trước đây nó bị kéo
+           1.22× ngang nhưng 1.4× dọc nên lộ thành một hàng chữ ma chồn lên
+           hàng chữ thật, trông như chữ rung. */
+        const glow = sprite(tex, w * 1.16, h * 1.16, 0.34 * fade);
         const core = sprite(tex, w, h, 0.98 * fade);
         glow.position.copy(p); core.position.copy(p);
         world.add(glow); world.add(core);
@@ -1714,9 +1729,9 @@ const Universe = (() => {
       /* trộn hai nhóm lẫn nhau TRƯỚC khi rải vị trí → không bị dồn thành hai cục */
       const chon = tap.sort(() => Math.random() - 0.5).slice(0, gioiHan);
 
-      /* ảnh đã to hơn nên đẩy bán kính ra xa và giãn khoảng cách tối thiểu,
-           nếu không chúng sẽ chồng lên nhau thành một đống */
-      traiRong(chon.length, 0.58, 14, 22).forEach(({ v, r }, i) => {
+      /* ảnh đã phóng to vật liệu nên bán kính phải kéo lại gần — đẩy xa quá thì
+           ảnh lớn trong không gian mà trên màn hình vẫn nhỏ */
+      traiRong(chon.length, 0.55, 11.5, 17).forEach(({ v, r }, i) => {
         const [id, , mauCanh] = chon[i].a;
         const tuHoa = chon[i].tuHoa;
         const grp = new THREE.Group();
