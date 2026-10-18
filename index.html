@@ -400,7 +400,7 @@
   <div class="pointer-events-none absolute inset-0 z-[1]"
        style="background:radial-gradient(62% 62% at 50% 50%, transparent 38%, rgba(8,4,12,.78) 100%)"></div>
 
-  <div class="ui relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col items-stretch justify-between px-5 pt-6 sm:px-8 sm:pt-8">
+  <div class="ui pointer-events-none relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col items-stretch justify-between px-5 pt-6 sm:px-8 sm:pt-8">
     <div class="hint-3d w-full text-center">
       <h2 class="neon neon-thin font-serif text-2xl italic sm:text-3xl">Vũ trụ lơ lửng</h2>
     </div>
@@ -1601,7 +1601,7 @@ const Universe = (() => {
       for (let i = 0; i < n; i++) {
         let best = null, bestGap = -1;
         for (let k = 0; k < 160; k++) {
-          const v = new THREE.Vector3(rand(-1, 1), rand(-0.72, 0.72), rand(-1, 0.22));
+          const v = new THREE.Vector3(rand(-1, 1), rand(-0.72, 0.72), rand(-1, -0.08));
           if (v.lengthSq() < 0.05) continue;
           v.normalize();
           let gap = Infinity;
@@ -1669,19 +1669,6 @@ const Universe = (() => {
       g.addColorStop(1, 'rgba(255,60,120,0)');
       x.fillStyle = g; x.fillRect(0, 0, S, S);
       return new THREE.CanvasTexture(c);
-    }
-
-    function captionTexture(text) {
-      const w = 440, h = 78, c = document.createElement('canvas');
-      c.width = w * 2; c.height = h * 2;
-      const x = c.getContext('2d'); x.scale(2, 2);
-      /* KHÔNG tô nền — nền trắng/hồng sẽ thành một vệt trắng dưới ảnh */
-      x.font = '400 34px "Dancing Script", cursive';
-      x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.shadowBlur = 14; x.shadowColor = 'rgba(255,60,140,.95)';
-      x.fillStyle = '#ffd9e8';
-      x.fillText(text, w / 2, h / 2, w - 16);
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
     }
 
     const glowTex = glowTexture();
@@ -1788,15 +1775,16 @@ const Universe = (() => {
       /* trộn hai nhóm lẫn nhau TRƯỚC khi rải vị trí → không bị dồn thành hai cục */
       const chon = tap.sort(() => Math.random() - 0.5).slice(0, gioiHan);
 
-      traiRong(chon.length, 0.5, 10, 17).forEach(({ v, r }, i) => {
-        const [id, cap, mauCanh] = chon[i].a;
+      traiRong(chon.length, 0.5, 12, 19).forEach(({ v, r }, i) => {
+        const [id, , mauCanh] = chon[i].a;
         const tuHoa = chon[i].tuHoa;
         const grp = new THREE.Group();
 
-        /* chỉ có mỗi tấm ảnh, không có khung trắng */
+        /* chỉ có mỗi tấm ảnh, không khung, không chữ — phải transparent
+           để cơ chế "mờ khi lọt sát camera" bên dưới làm được */
         const photo = new THREE.Mesh(
           new THREE.PlaneGeometry(PW, PH),
-          new THREE.MeshBasicMaterial({ color: 0x2a1420 }));
+          new THREE.MeshBasicMaterial({ color: 0x2a1420, transparent: true }));
         grp.add(photo);
 
         loadTex.load(anh(id), (t) => {
@@ -1807,17 +1795,13 @@ const Universe = (() => {
           photo.material.needsUpdate = true;
         }, undefined, () => { photo.material.color.set(0x6b3550); });
 
-        /* chú thích: chữ nhỏ, nền trong suốt, đặt dưới ảnh */
-        const capMesh = new THREE.Mesh(
-          new THREE.PlaneGeometry(PW * 1.1, 0.42),
-          new THREE.MeshBasicMaterial({ map: captionTexture(cap), transparent: true, depthWrite: false }));
-        capMesh.position.set(0, -(PH / 2) - 0.26, 0.02);
-        grp.add(capMesh);
-
         const halo = sprite(glowTex, PW * (tuHoa ? 2.9 : 2.6), PH * (tuHoa ? 2.7 : 2.4),
                            tuHoa ? 0.24 : 0.2);
         halo.position.z = -0.35;
         grp.add(halo);
+
+        /* gom mọi vật liệu của nhóm lại để cùng fade theo khoảng cách */
+        const mats = [photo.material, halo.material];
 
         /* chùm cánh hoa quay nhẹ — chỉ ảnh từ bó hoa mới có */
         if (tuHoa) {
@@ -1829,6 +1813,7 @@ const Universe = (() => {
             p.position.set(k * sz * 0.46, (PH / 2) + sz * 0.16, 0.05);
             p.material.rotation = k * 0.5;              // xoay từng cánh ra ngoài
             pet.add(p);
+            mats.push(p.material);
           });
           pet.position.y = 0;
           grp.add(pet);
@@ -1842,24 +1827,29 @@ const Universe = (() => {
         floaters.push({
           o: grp, baseY: grp.position.y, amp: rand(0.3, 0.7), sp: rand(0.25, 0.5),
           ph: rand(0, 6.28), billboard: true, tilt: 0,   // ảnh luôn thẳng, không nghiêng
+          /* tắt hẳn khi lọt sát camera — nếu không, một tấm ảnh sẽ
+             phình ra che kín màn hình mỗi khi xoay tới */
+          fade: true, mats, op0: mats.map((m) => m.opacity), k: -1,
         });
       });
     }
 
     /* ── tương tác: kéo để xoay, lăn/pinch để zoom ──
-       Listener gắn trên window để con trỏ chạy ra ngoài canvas vẫn xoay được. */
+       Gắn pointerdown trên WINDOW chứ không trên canvas: lớp .ui phủ kín
+       màn hình, nếu đợi canvas bắt sự kiện thì kéo sẽ không bao giờ ăn.
+       Lớp .ui đã có pointer-events-none, nút bấm vẫn bình thường. */
     let rotX = 0.05, rotY = 0, tX = 0.05, tY = 0;
     let camZ = 11, tCamZ = 11;
     let dragging = false, lx = 0, ly = 0, vX = 0, vY = 0;
     let khoangPinch = 0, khoangTouch = 0;
     const pts = new Map();
 
-    cv.addEventListener('pointerdown', (e) => {
+    addEventListener('pointerdown', (e) => {
+      if (e.target && e.target.closest && e.target.closest('button, a')) return;   // bấm nút thì đừng xoay
       e.preventDefault();
       dragging = true;
       lx = e.clientX; ly = e.clientY;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      try { cv.setPointerCapture(e.pointerId); } catch (_) {}
       cv.classList.add('is-dragging');
       vX = vY = 0;
     });
@@ -1888,19 +1878,29 @@ const Universe = (() => {
     addEventListener('pointerup', endPointer);
     addEventListener('pointercancel', endPointer);
 
-    cv.addEventListener('wheel', (e) => {
+    /* Zoom cũng gắn trên WINDOW, không kén canvas: có lớp phủ nằm giữa
+       (nút loa, màn hình chờ, ...) thì sự kiện bánh xe sẽ không tới canvas.
+       Chỉ chạy khi cảnh 2 đang hiện và không đụng lá thư cảnh 3. */
+    const duocZoom = (e) => {
+      if (!document.querySelector('#scene-2')?.classList.contains('is-active')) return false;
+      if (e.target.closest && e.target.closest('#letter')) return false;   // lá thư phải cuộn được
+      return true;
+    };
+
+    addEventListener('wheel', (e) => {
+      if (!duocZoom(e)) return;
       e.preventDefault();
       tCamZ = clamp(tCamZ + e.deltaY * 0.011, 6, 24);
     }, { passive: false });
 
-    cv.addEventListener('touchmove', (e) => {
-      if (e.touches.length !== 2) return;
+    addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 2 || !duocZoom(e)) return;
       const [a, b] = e.touches;
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       if (khoangTouch) tCamZ = clamp(khoangTouch / d * camZ, 6, 24);
       khoangTouch = d;
     }, { passive: true });
-    cv.addEventListener('touchend', () => { khoangTouch = 0; });
+    addEventListener('touchend', () => { khoangTouch = 0; });
 
     function resize() {
       const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
@@ -1913,6 +1913,7 @@ const Universe = (() => {
 
     /* ── vòng lặp ── */
     const _q = new THREE.Quaternion();
+    const _p = new THREE.Vector3();
     let raf = 0, running = false, last = performance.now(), clock = 0;
 
     function frame(now) {
@@ -1949,6 +1950,24 @@ const Universe = (() => {
             f.o.parent.getWorldQuaternion(_q).invert();
             f.o.quaternion.slerp(_q, 0.045);
             f.o.rotateZ(f.tilt);
+          }
+
+          /* ── chặn ảnh lọt sát camera ──
+             Khi xoay, một tấm ảnh có thể lọt ra sát ống kính và phình
+             kín màn hình. Ở dưới ~4.5 đơn vị thì tắt hẳn, từ 4.5 đến 8
+             thì mờ dần — nên không bao giờ có ảnh nào che hết cảnh. */
+          if (f.fade) {
+            f.o.updateWorldMatrix(true, false);
+            _p.setFromMatrixPosition(f.o.matrixWorld);
+            const d = _p.distanceTo(camera.position);
+            const k = clamp((d - 4.5) / 3.5, 0, 1);
+            if (Math.abs(k - f.k) > 0.01) {
+              f.k = k;
+              for (let i = 0; i < f.mats.length; i++) {
+                f.mats[i].opacity = f.op0[i] * k;
+                f.mats[i].visible = k > 0.02;
+              }
+            }
           }
         }
 
