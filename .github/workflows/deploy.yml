@@ -1,0 +1,44 @@
+name: Deploy len GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Cho phép deploy tay tu trang Actions neu can
+  workflow_dispatch:
+
+permissions:
+  contents: read      # duoc doc code
+  pages: write        # duoc phat Pages
+  id-token: write     # lay token de xac thuc
+
+# Khong cho 2 lan deploy chay cung luc (lan sau thay the lan truoc)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Dua len GitHub Pages
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.tre-do.outputs.page_url }}
+
+    steps:
+      - name: Lay code
+        uses: actions/checkout@v4
+
+      - name: Chuan bi Pages
+        uses: actions/configure-pages@v5
+
+      - name: Gom website thanh artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # '.' = dua ca thu muc repo len Pages.
+          # File bi .gitignore loai (anh goc, file nhac) se khong co mat.
+          path: '.'
+
+      - name: Phat len Pages
+        id: tre-do
+        uses: actions/deploy-pages@v4

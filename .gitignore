@@ -1,0 +1,15 @@
+# ── Ảnh gốc nằm ở thư mục gốc (4.3 MB) — web chỉ dùng bản nhỏ trong img/
+#    Muốn dùng lại thì bỏ dấu # ở dòng dưới, nhưng repo sẽ nặng thêm.
+/*.jpg
+
+# ── File nhạc: web phát qua YouTube Embed nên KHÔNG cần mp3 trong repo.
+#    Đồng thời đây là bản tải từ nguồn không chính thức — không nên phát hành.
+/nhac/*.mp3
+
+# ── Công cụ cục bộ, không thuộc về web
+/do-thoi-diem-phu-de.py
+
+# ── Rác thường gặp
+Thumbs.db
+desktop.ini
+.DS_Store
